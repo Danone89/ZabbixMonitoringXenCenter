@@ -1,8 +1,9 @@
-#!/usr/bin/python
+#!/usr/bin/python3.4
 """
 Autor:      Robert Gladewitz
-Version :   1.0
-Change:     11. March 2017
+Change Autor: Daniel Bośnjak
+Version :   1.1
+Change:     28. March 2018
 
 
 Description
@@ -50,7 +51,8 @@ www-data, the old cache file (creates by user root) can not open for writing. Th
 #################################################################################################################################
 """
 
-import urllib2
+#import urllib2
+import urllib.request as request
 import xml.dom.minidom
 import sys, time
 import itertools
@@ -94,7 +96,7 @@ Path where the XENApi is located.
 """
 ssl._create_default_https_context = ssl._create_unverified_context
 
-sys.path.append('/usr/local/lib/python')
+sys.path.append('/usr/local/lib/python3.4')
 import XenAPI
 """
 #################################################################################################################################
@@ -145,7 +147,7 @@ def getHostsVms(xenmaster, username, password, xenhosts, xenvms, xensrs):
     session = XenAPI.Session(url, ignore_ssl=True)
     try:
         session.login_with_password(username,password,"1.0","citrix.py")
-    except XenAPI.Failure, e:
+    except XenAPI.Failure as e:
         if (e.details[0] == 'HOST_IS_SLAVE'):
             session=XenAPI.Session("https://" + e.details[1])
             session.login_with_password(username,password)
@@ -157,7 +159,7 @@ def getHostsVms(xenmaster, username, password, xenhosts, xenvms, xensrs):
     for host in sx.host.get_all():
         xenhosts[sx.host.get_uuid(host)] = sx.host.get_hostname(host)
         for pbd in sx.host.get_PBDs(host):
-	     sr = sx.PBD.get_SR(pbd)
+             sr = sx.PBD.get_SR(pbd)
              srname = sx.SR.get_name_label(sr).replace(' ','_')
              if (re.match(r"(DVD_drives|Removable_storage|XenServer_Tools)", srname)):
                 continue
@@ -176,14 +178,12 @@ def getHostsVms(xenmaster, username, password, xenhosts, xenvms, xensrs):
 def getStatsXML(hostname, username, password, delay):
     start = int(time.time()) - 2 * int(delay)
     theurl = 'https://%s/rrd_updates?start=%s&host=true&cf=ave&interval=%s' % (hostname, start, delay)
-
-    passman = urllib2.HTTPPasswordMgrWithDefaultRealm()
+    passman = request.HTTPPasswordMgrWithDefaultRealm()
     passman.add_password(None, theurl, username, password)
-    authhandler = urllib2.HTTPBasicAuthHandler(passman)
-    opener = urllib2.build_opener(authhandler)
-    urllib2.install_opener(opener)
-    pagehandle = urllib2.urlopen(theurl)
-
+    authhandler = request.HTTPBasicAuthHandler(passman)
+    opener = request.build_opener(authhandler)
+    request.install_opener(opener)
+    pagehandle = request.urlopen(theurl)
     return pagehandle.read()
 
 #################################################################################################################################
@@ -191,7 +191,7 @@ def getStats(xenhosts, username, password, delay):
     legendArr = []
     valueArr = []
 
-    for hostname in xenhosts.itervalues():
+    for hostname in xenhosts.values():
         page = getStatsXML(hostname, username, password, delay)
 
         dom = xml.dom.minidom.parseString(page)
@@ -203,13 +203,13 @@ def getStats(xenhosts, username, password, delay):
         for v in values.getElementsByTagName("v"):
             valueArr.append(v.childNodes[0].data)
 
-    return dict(itertools.izip(legendArr,valueArr))
+    return dict(zip(legendArr,valueArr))
 
 #################################################################################################################################
 def printMetric(f, host, hostsCpu, hostsCpuCount, metric, value):
     # only for summarize cpu usage
     if (re.match(r"cpu\d+", metric)):
-        if (hostsCpu.has_key(host)):
+        if ( host in hostsCpu):
             hostsCpuCount[host] += 1
             hostsCpu[host] += float(value)
         else:
@@ -221,10 +221,10 @@ def printMetric(f, host, hostsCpu, hostsCpuCount, metric, value):
 
 #################################################################################################################################
 def printHostCpu(f, hostsCpu, hostsCpuCount):
-    for key, value in hostsCpu.iteritems():
+    for key, value in hostsCpu.items():
         f.write("%s cpu %s\n" % (key, value))
 
-    for key, value in hostsCpuCount.iteritems():
+    for key, value in hostsCpuCount.items():
         f.write("%s cpu_count %s\n" % (key, value))
 
 #################################################################################################################################
@@ -240,24 +240,24 @@ def printStats(values, hosts, vms, srs, filename, vmfilename, srfilename):
     sf = open(srfilename, 'w')
 
 
-    for key, value in srs.iteritems():
+    for key, value in srs.items():
         match = re.match(r"([0-9aAbBcCdDeEfF]+)-", key)
         sf.write("%s %s %s\n" % (match.group(1), key, value))
 
-    for key, value in values.iteritems(): 
+    for key, value in values.items(): 
         match = re.match(r"(\S+)\:(\S+)\:(\S+)\:(\S+)", key)
         if (match.group(1) == 'AVERAGE'):
             metric = match.group(4)
 
             # find hostname
             if (match.group(2) == 'host'):
-                if (hosts.has_key(match.group(3))):
+                if ( match.group(3)  in hosts):
                     host = hosts[match.group(3)]
                 else:
                     continue
                 printMetric(f, host, hostsCpu, hostsCpuCount, metric, value)
             elif (match.group(2) == 'vm'):
-                if (vms.has_key(match.group(3))):
+                if (match.group(3) in vms):
                     host = vms[match.group(3)]
                 else:
                     continue
@@ -290,9 +290,9 @@ def refreshdatefiles(xenmaster, username, password, maxage):
             lock.release()
             return
         elif (not getHostsVms(xenmaster, username, password, xenhosts, xenvms, xensrs) ):
-            print "ERROR: xenmaster not found or not available"
+            print ("ERROR: xenmaster not found or not available")
             sys.exit(254)
-	else:
+        else:
             values = getStats(xenhosts, username, password, maxage)
 
             printStats(values, xenhosts, xenvms, xensrs, temphostfile + '.cache', tempvmfile + '.cache', tempsrfile + '.cache')
@@ -311,22 +311,24 @@ def printoutKeysByRegex(filename, hostname, rexreg):
     f.close()
     first = True
 
-    print '{'
+    print ('{')
     sys.stdout.write ('   "data":[')
     
     for line in lines:
-	match = re.match(r"(\S+) (\S+) (\S+)", line)
+        match = re.match(r"(\S+) (\S+) (\S+)", line)
         if ( match.group(1) == '' or  match.group(2) == '' or  match.group(3) == ''): continue 
         if (match.group(1) == hostname):
-	    if (re.match(rexreg, match.group(2))):
-		if (first): sys.stdout.write('\n')
-                else: sys.stdout.write(',\n')
-		outstring = '        { "{#CPUNAME}":"' + match.group(2) + '" }' 
-	        sys.stdout.write (outstring)
-                first = False
+            if (re.match(rexreg, match.group(2))):
+                if (first): 
+                    sys.stdout.write('\n')
+                else: 
+                    sys.stdout.write(',\n')
+            outstring = '        { "{#CPUNAME}":"' + match.group(2) + '" }' 
+        sys.stdout.write (outstring)
+        first = False
 
-    print '\n    ]'
-    print '}'
+    print ('\n    ]')
+    print ('}')
 
 #################################################################################################################################
 def printoutNetinterfaces(filename, hostname, rexreg):
@@ -342,12 +344,12 @@ def printoutNetinterfaces(filename, hostname, rexreg):
         if ( match.group(1) == '' or  match.group(2) == '' or  match.group(3) == ''): continue
         if (match.group(1) == hostname and re.match(r"^[vp]if.*",match.group(2))):
             matchinterfaces = re.match(r"([vp]if)_(\S+)_(\S+)$",match.group(2))
-	    ni[matchinterfaces.group(1)+"_"+matchinterfaces.group(2)] = matchinterfaces.group(2)
+            ni[matchinterfaces.group(1)+"_"+matchinterfaces.group(2)] = matchinterfaces.group(2)
 
-    print '{'
+    print ('{')
     sys.stdout.write ('   "data":[')
 
-    for key, value in ni.iteritems():
+    for key, value in ni.items():
         if (re.match(rexreg,key)):
             if (first): sys.stdout.write('\n')
             else: sys.stdout.write(',\n')
@@ -355,8 +357,8 @@ def printoutNetinterfaces(filename, hostname, rexreg):
             sys.stdout.write (outstring)
             first = False
 
-    print '\n    ]'
-    print '}'
+    print ('\n    ]')
+    print ('}')
 
 #################################################################################################################################
 def printoutVirtualdisks(filename, hostname, rexreg):
@@ -372,12 +374,12 @@ def printoutVirtualdisks(filename, hostname, rexreg):
         if ( match.group(1) == '' or  match.group(2) == '' or  match.group(3) == ''): continue
         if (match.group(1) == hostname and re.match(r"^vbd.*",match.group(2))):
             matchinterfaces = re.match(r"vbd_([^_]+)_.*",match.group(2))
-	    ni["vbd_"+matchinterfaces.group(1)] = matchinterfaces.group(1)
+        ni["vbd_"+matchinterfaces.group(1)] = matchinterfaces.group(1)
 
-    print '{'
+    print ('{')
     sys.stdout.write ('   "data":[')
 
-    for key, value in ni.iteritems():
+    for key, value in ni.items():
         if (re.match(rexreg,key)):
             if (first): sys.stdout.write('\n')
             else: sys.stdout.write(',\n')
@@ -385,8 +387,8 @@ def printoutVirtualdisks(filename, hostname, rexreg):
             sys.stdout.write (outstring)
             first = False
 
-    print '\n    ]'
-    print '}'
+    print ('\n    ]')
+    print ('}')
 
 
 
@@ -397,11 +399,11 @@ def printoutValueByKeyname(filename, hostname, keyname):
     f.close()
 
     for line in lines:
-	match = re.match(r"(\S+) (\S+) (\S+)", line)
+        match = re.match(r"(\S+) (\S+) (\S+)", line)
         if ( match.group(1) == '' or  match.group(2) == '' or  match.group(3) == ''): continue 
         if (match.group(1) == hostname):
-	    if ( match.group(2) == keyname):
-                print match.group(3)
+            if ( match.group(2) == keyname):
+                print (match.group(3))
                 break
  
 #################################################################################################################################
@@ -411,7 +413,7 @@ def printoutSrs(filename, rexreg):
     f.close()
     first = True
  
-    print '{'
+    print ('{')
     sys.stdout.write ('   "data":[')
     for line in lines:
         match = re.match(r"(\S+) (\S+) (\S+)", line)
@@ -423,8 +425,8 @@ def printoutSrs(filename, rexreg):
             sys.stdout.write (outstring)
             first = False 
 
-    print '\n    ]'
-    print '}'
+    print ('\n    ]')
+    print ('}')
         
 
             
@@ -448,12 +450,12 @@ def main(argv):
     try:
         opts, args = getopt.getopt(argv,"ham:u:p:c:f:t:H:")
     except getopt.GetoptError as err:
-        print sys.argv[0], " -m <master> -u <username> -p <password> -c <command> -f <filter> -t <host|vm> -H <hostname|vmname> [-a <maxage>]"
+        print (sys.argv[0], " -m <master> -u <username> -p <password> -c <command> -f <filter> -t <host|vm> -H <hostname|vmname> [-a <maxage>]")
         sys.exit(255)
 
     for opt, arg in opts:
         if opt == '-h':
-            print sys.argv[0], " -m <master> -u <username> -p <password> -c <command> -f <filter> -t <host|vm> -H <hostname|vmname> [-a <maxage>]"
+            print (sys.argv[0], " -m <master> -u <username> -p <password> -c <command> -f <filter> -t <host|vm> -H <hostname|vmname> [-a <maxage>]")
             sys.exit(0)
         elif opt == '-m':
             xenmaster = arg
@@ -473,8 +475,8 @@ def main(argv):
             host = arg
 
     if (xenmaster == '' or username == '' or password == '' or command == '' or filter == '' or type == '' or host == '' ):
-        print sys.argv[0], " -m <master> -u <username> -p <password> -c <command> -f <filter> -t <host|vm> -H <hostname|vmname> [-a <maxage>] (Parameter missing)"
-	sys.exit(3)
+        print (sys.argv[0], " -m <master> -u <username> -p <password> -c <command> -f <filter> -t <host|vm> -H <hostname|vmname> [-a <maxage>] (Parameter missing)")
+        sys.exit(3)
 
     # check for refresh data
     refreshdatefiles(xenmaster, username, password, maxage)
@@ -483,7 +485,7 @@ def main(argv):
     if ( type == 'host' ): filename = temphostfile
     elif (type == 'vm' ): filename = tempvmfile
     else:
-        print "Parameter t must be host or vm"
+        print ("Parameter t must be host or vm")
         sys.exit(2)
 
     if   ( command == 'list' ):    printoutKeysByRegex(filename,host,filter)
@@ -497,7 +499,7 @@ if __name__ == "__main__":
         main(sys.argv[1:])
 
     else:
-        print "Usage:"
-        print sys.argv[0], " -m <master> -u <username> -p <password> -a <maxage>"
+        print ("Usage:")
+        print (sys.argv[0], " -m <master> -u <username> -p <password> -a <maxage>")
         sys.exit(1)
 
