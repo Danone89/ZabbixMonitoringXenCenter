@@ -18,7 +18,7 @@ Default is /usr/lib/zabbix/externalscripts
 4. Import the templates
 zbx_export_templates.xml --> contains both templates for VM and Host
 
-''Please note, the the name in zabbix and the name in xen have to be the same!
+###Please note, the the name in zabbix and the name in xen have to be the same!
 
  
 
