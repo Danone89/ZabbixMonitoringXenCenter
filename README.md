@@ -23,7 +23,7 @@ zbx_export_templates.xml --> contains both templates for VM and Host
 
 6. Set macros (Global on on all host you use this templates)
 
-{$XENMASTER} -->Masterserver of XENCLUSTER
+{$XENMASTER} --> Masterserver of XENCLUSTER
 
 {$XENUSERNAME} --> Username for connect to XENCLUSTER
 
@@ -34,7 +34,7 @@ Run the script as zabbix user from your zabbix or zabbix proxy host.
 
 Example:
 
-/usr/lib/zabbix/externalscripts/citrix.xenserver.py -m "<xenmaster>" -u "<xen/xcp root>" -p "<password>" -t "host" -H "<hostname>" -c "value" -f "memory_free_kib"
+/usr/lib/zabbix/externalscripts/citrix.xenserver.py -m "\<xenmaster>" -u "\<xen/xcp root>" -p "\<password>" -t "host" -H "\<hostname>" -c "value" -f "memory_free_kib"
 
 Check if you see data gathered from xenmaster in /tmp/xenapi.<hostname>... log files. 
 
