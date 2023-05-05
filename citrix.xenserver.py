@@ -1,10 +1,12 @@
-#!/usr/bin/python3.4
+#!/usr/bin/python3.9
 """
 Autor:      Robert Gladewitz
-Change Autor: Daniel Bośnjak
-Version :   1.1
-Change:     28. March 2018
-
+Change Autor: Daniel Bośnjak, Kamil Seweryn
+Version :   1.1b
+Change:     05 May 2023
+Change info: 
+    1. [bug fix] added separate log files for each/based on the host name 
+    2. changed interpreter to python3.9 - currently used on Debian 11
 
 Description
 This script is based on XENApi, You can query performance counter for zabbix as external script.
@@ -96,7 +98,7 @@ Path where the XENApi is located.
 """
 ssl._create_default_https_context = ssl._create_unverified_context
 
-sys.path.append('/usr/local/lib/python3.4')
+sys.path.append('/usr/local/lib/python3.9')
 import XenAPI
 """
 #################################################################################################################################
@@ -473,7 +475,10 @@ def main(argv):
             type = arg
         elif opt == '-H':
             host = arg
-
+            temphostfile = "/tmp/xenapi." + host + ".hostperformance.tmp"
+            tempvmfile   = "/tmp/xenapi." + host + ".vmperformance.tmp"
+            tempsrfile   = "/tmp/xenapi." + host + ".srlist.tmp"
+            
     if (xenmaster == '' or username == '' or password == '' or command == '' or filter == '' or type == '' or host == '' ):
         print (sys.argv[0], " -m <master> -u <username> -p <password> -c <command> -f <filter> -t <host|vm> -H <hostname|vmname> [-a <maxage>] (Parameter missing)")
         sys.exit(3)
